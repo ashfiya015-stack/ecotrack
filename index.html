@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>EcoTrack – Energy & Waste Copilot</title>
+<style>
+:root{--bg:#f4f8f5;--card:#fff;--tx:#14301f;--mu:#5b7566;--ac:#1f9d55;--bd:#d6e4da;--wa:#e8a317;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1a13;--card:#16261c;--tx:#e6f2ea;--mu:#93ad9b;--ac:#3ddc84;--bd:#26402f;--wa:#f2b84b}}
+:root[data-theme="dark"]{--bg:#0e1a13;--card:#16261c;--tx:#e6f2ea;--mu:#93ad9b;--ac:#3ddc84;--bd:#26402f;--wa:#f2b84b}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,Segoe UI,sans-serif;line-height:1.45}
+.w{max-width:960px;margin:auto;padding:16px}
+h1{font-size:1.5rem;margin:4px 0}p.s{color:var(--mu);margin:0 0 14px}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.c{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px}
+h2{font-size:1rem;margin:0 0 10px}
+label{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.88rem;margin:6px 0}
+input[type=number]{width:80px;padding:5px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx)}
+input[type=range]{width:55%}
+.k{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:12px 0}
+.k div{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px}
+.k b{display:block;font-size:1.3rem;color:var(--ac)}.k span{font-size:.75rem;color:var(--mu)}
+.r{border-left:4px solid var(--ac);padding:6px 10px;margin:8px 0;background:var(--bg);border-radius:0 8px 8px 0;font-size:.9rem}
+.r small{color:var(--mu);display:block}
+.ov{overflow-x:auto}svg{width:100%;height:auto;min-width:300px}
+small.f{color:var(--mu);display:block;margin-top:14px;font-size:.75rem}
+</style></head><body><div class="w">
+<h1>🌱 EcoTrack</h1>
+<p class="s">AI energy &amp; waste copilot for homes and campuses. Enter your data, get a forecast, footprint and ranked actions.</p>
+<div class="g">
+<div class="c"><h2>Monthly electricity (kWh, last 6 months)</h2><div id="hs"></div>
+<label>Tariff (₹/kWh)<input type="number" id="tf" value="7" step="0.5"></label>
+<label>Import CSV (month,kwh)<input type="file" id="csv" accept=".csv,.txt" style="max-width:150px"></label></div>
+<div class="c"><h2>Habits &amp; waste</h2>
+<label>AC hours/day<input type="range" id="ac" min="0" max="16" value="6"><b id="acv">6</b></label>
+<label>LED lighting %<input type="range" id="led" min="0" max="100" value="40"><b id="ledv">40</b></label>
+<label>Organic waste kg/week<input type="number" id="org" value="6"></label>
+<label>Plastic kg/week<input type="number" id="pl" value="2"></label>
+<label>Paper kg/week<input type="number" id="pa" value="2"></label>
+<label>Segregated / recycled %<input type="range" id="rc" min="0" max="100" value="20"><b id="rcv">20</b></label></div>
+</div>
+<div class="k" id="k"></div>
+<div class="g">
+<div class="c ov"><h2>Usage trend &amp; forecast</h2><svg id="ch" viewBox="0 0 420 200"></svg></div>
+<div class="c"><h2>AI recommendations (ranked by CO₂ saved)</h2><div id="rec"></div></div>
+</div>
+<small class="f">Method: least-squares regression for forecast; rule-based engine for actions. Assumptions: grid 0.82 kg CO₂/kWh; landfill factors organic 0.5, paper 1.0, plastic 0.2 kg CO₂e/kg; savings are estimates, not audits.</small>
+</div>
+<script>
+const $=i=>document.getElementById(i),H=[420,445,470,455,490,515];
+const M=['M-5','M-4','M-3','M-2','M-1','Now','Next'];
+$('hs').innerHTML=H.map((v,i)=>`<label>${M[i]}<input type="number" class="h" value="${v}"></label>`).join('');
+function run(){
+ const y=[...document.querySelectorAll('.h')].map(e=>+e.value||0),n=y.length;
+ const xm=(n-1)/2,ym=y.reduce((a,b)=>a+b)/n;
+ let nu=0,de=0;y.forEach((v,i)=>{nu+=(i-xm)*(v-ym);de+=(i-xm)**2});
+ const sl=nu/de,f=Math.max(0,ym+sl*(n-xm)),last=y[n-1],tr=last?(f-last)/last*100:0;
+ const tf=+$('tf').value||0,ac=+$('ac').value,led=+$('led').value,rc=+$('rc').value;
+ const og=+$('org').value||0,pl=+$('pl').value||0,pa=+$('pa').value||0;
+ ['ac','led','rc'].forEach(k=>$(k+'v').textContent=$(k).value);
+ const E=0.82,wc=(og*.5+pa*1+pl*.2)*4.3*(1-rc/100);
+ const co=f*E+wc;
+ const score=Math.round(Math.min(100,Math.max(0,50+rc*.25+led*.15-Math.max(0,tr)*1.5-ac*1.5+10)));
+ $('k').innerHTML=[[Math.round(f)+' kWh','Forecast next month'],[(tr>=0?'+':'')+tr.toFixed(1)+'%','vs this month'],['₹'+Math.round(f*tf).toLocaleString('en-IN'),'Predicted bill'],[Math.round(co)+' kg','CO₂e / month'],[score+'/100','Sustainability score']].map(a=>`<div><b>${a[0]}</b><span>${a[1]}</span></div>`).join('');
+ const R=[];
+ if(ac>0){const s=ac*30*1.2*.1;R.push([s*E,`Set AC to 24–26°C and use sleep/timer mode`,`~${Math.round(s)} kWh/month (≈10% of AC use)`])}
+ if(led<100){const s=f*.15*(1-led/100)*.6;R.push([s*E,`Replace remaining bulbs with LEDs (${100-led}% left)`,`~${Math.round(s)} kWh/month`])}
+ {const s=f*.05;R.push([s*E,`Use smart plugs/power strips to cut standby load`,`~${Math.round(s)} kWh/month (≈5%)`])}
+ if(tr>3)R.push([f*.03*E,`Usage is rising ${tr.toFixed(1)}%: audit new appliances and shift heavy loads to off-peak`,`~${Math.round(f*.03)} kWh/month`]);
+ if(og>0){const s=og*4.3*.5*.8*(1-rc/100);R.push([s,`Compost ${og} kg/week of kitchen waste instead of landfilling`,`~${Math.round(s)} kg CO₂e/month`])}
+ if(rc<80){const s=(pa*1+pl*.2)*4.3*(.8-rc/100>0?.8-rc/100:0);R.push([s,`Segregate dry waste and raise recycling from ${rc}% to 80%`,`~${Math.round(s)} kg CO₂e/month`])}
+ R.sort((a,b)=>b[0]-a[0]);
+ $('rec').innerHTML=R.map(r=>`<div class="r"><b>${r[1]}</b><small>Saves ≈ ${r[0].toFixed(1)} kg CO₂/month · ${r[2]}</small></div>`).join('');
+ const all=[...y,f],mx=Math.max(...all,1)*1.1;
+ $('ch').innerHTML=all.map((v,i)=>{const h=v/mx*150,x=20+i*56;return `<rect x="${x}" y="${170-h}" width="40" height="${h}" rx="4" fill="${i==n?'var(--wa)':'var(--ac)'}"/><text x="${x+20}" y="${164-h}" font-size="11" text-anchor="middle" fill="currentColor">${Math.round(v)}</text><text x="${x+20}" y="188" font-size="10" text-anchor="middle" fill="currentColor">${M[i]}</text>`}).join('');
+}
+$('csv').addEventListener('change',e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{const v=r.result.split(/\r?\n/).map(l=>parseFloat(l.split(',').pop())).filter(x=>!isNaN(x)).slice(-6);if(v.length<6){alert('Need at least 6 monthly kWh rows');return}document.querySelectorAll('.h').forEach((el,i)=>el.value=v[i]);run()};r.readAsText(f)});
+document.querySelectorAll('input').forEach(e=>e.addEventListener('input',run));run();
+</script></body></html>
